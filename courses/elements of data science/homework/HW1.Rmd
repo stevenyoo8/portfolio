@@ -1,0 +1,161 @@
+---
+title: "HW 1"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter your name and EID here:
+
+**Jongho Yoo** **jy23294**
+
+**You will submit this homework assignment as a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+------------------------------------------------------------------------
+
+## Part 1:
+
+The dataset `mtcars` was extracted from the 1974 Motor Trend US magazine, and comprises fuel consumption and other aspects of automobile design and performance for different cars (1973-74 models). Look up the documentation for this data frame with a description of the variables by typing `?mtcars` **in the console** pane.
+
+### Question 1: (2 pt)
+
+Take a look at the first 6 rows of the dataset by using an `R` function in the code chunk below. Have you heard about any (or all) of these cars?
+
+```{r}
+head(mtcars)
+
+```
+
+**I've only heard of the Mazda brand, but not those specific models. I have not even heard of the other models.**
+
+------------------------------------------------------------------------
+
+### Question 2: (2 pts)
+
+How many rows and columns are there in this data frame in total?
+
+```{r}
+nrow(mtcars)
+ncol(mtcars)
+```
+
+**There are 32 rows and 11 columns.**
+
+------------------------------------------------------------------------
+
+### Question 3: (1 pt)
+
+Save `mtcars` in your environment and name it as your `eid`. From now on, use this new object instead of the built-in dataset.
+
+```{r}
+jy23294 <- mtcars
+
+```
+
+**'mtcars' dataset saved and set as my eid.**
+
+------------------------------------------------------------------------
+
+### Question 4: (2 pts)
+
+When is your birthday? Using indexing, grab the row of `mpg` that corresponds to the day of your birthday (should be a number between 1 and 31).
+
+```{r}
+jy23294[12,]
+
+```
+
+**Birthday: Jan-12-2001.**
+
+------------------------------------------------------------------------
+
+### Question 5: (2 pts)
+
+Using logical indexing, count the number of rows in the dataset where the variable `mpg` takes on values greater than 30.
+
+```{r}
+nrow(jy23294[jy23294$mpg > 30, ])
+
+```
+
+**There are 4 rows where 'mpg' is greater than 30.**
+
+------------------------------------------------------------------------
+
+### Question 6: (2 pts)
+
+Let's create a new variable called `kpl` which converts the fuel efficiency `mpg` in kilometers per liter. Knowing that 1 mpg corresponds to 0.425 kpl, complete the following code and calculate the max kpl:
+
+```{r}
+jy23294$kpl <- jy23294$mpg * 0.425
+max(jy23294$kpl)
+
+```
+
+**The max kpl is 14.4075.**
+
+------------------------------------------------------------------------
+
+## Part 2:
+
+Let's quickly explore another built-in dataset: `airquality` which contains information about daily air quality measurements in New York, May to September 1973.
+
+### Question 7: (2 pts)
+
+Calculate the mean `Ozone` (in ppb) using the `mean()` function. Why does it make sense to get this answer? *Hint: take a look at the column `Ozone` in the dataset.*
+
+```{r}
+mean(airquality$Ozone)
+
+```
+
+**There are NA values in the Ozone column. You can't calculate mean when there are NA values, hence R gives the result "NA".**
+
+------------------------------------------------------------------------
+
+### Question 8: (2 pts)
+
+Look at the documentation for the function `mean()` by running `?mean` **in the console**. What argument should be used to find the mean value that we were not able to get in the previous question? What type of values does that argument take?
+
+**The "na.rm" argument should be used and set to TRUE. This argument takes TRUE and FALSE values.**
+
+------------------------------------------------------------------------
+
+### Question 9: (2 pts)
+
+Sometimes the R documentation does not feel complete. We wish we had more information or more examples. Find a post online (include the link) that can help you use that argument in the `mean()` function. Then finally find the mean ozone!
+
+```{r}
+mean(airquality$Ozone, na.rm = TRUE)
+
+```
+
+**Mean ozone = 42.1293.** [**Link to Post**](https://stat.ethz.ch/pipermail/r-help/2011-July/283499.html)
+
+------------------------------------------------------------------------
+
+## Formatting: (3 pts)
+
+Knit your file! You can knit into pdf directly or into html.
+
+Is it working? If not, try to decipher the error message (look up the error message, consult websites such as [stackoverflow](https://stackoverflow.com/) or [crossvalidated](https://stats.stackexchange.com/).
+
+Remember to select pages for each question when submitting your pdf to Gradescope.
+
+------------------------------------------------------------------------
+
+```{r, echo=F}
+## DO NOT DELETE THIS BLOCK!
+Sys.info()
+```
