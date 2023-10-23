@@ -1,1 +1,1 @@
-# files for CS 303E
+# files for computational biology (BIO 321G)
