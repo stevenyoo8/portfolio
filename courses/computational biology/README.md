@@ -1,1 +1,1 @@
-# files for computational biology (BIO 321G)
+# course contents for computational biology (BIO 321G)
