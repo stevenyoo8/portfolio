@@ -1,0 +1,160 @@
+---
+title: "Worksheet 7: Tidying"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+# You won't have to edit it (unless you want to!)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+## 1. Set up
+
+Let's call the package `tidyverse` which contains the packages `tidyr`, `dplyr` and `ggplot2` which we will use today.
+
+```{r, echo=FALSE}
+# Call the tidyverse package
+library(tidyverse)
+```
+
+The following tables are part of the `tidyr` package all display the number of TB cases documented by the World Health Organization in Afghanistan, Brazil, and China between 1999 and 2000. They contain values associated with four variables (country, year, cases, and population), but each table organizes the values in a different layout.
+
+```{r}
+# Open the different tabular representations of the tuberculosis data
+table1
+table2
+table3
+table4a
+table4b
+table5
+```
+
+Are these tables tidy?
+
+## 2. Pivoting
+
+### a. Wide to long
+
+Let's focus on `table4a`:
+
+```{r}
+# Look at table4a - Tuberculosis cases
+table4a
+```
+
+The function `pivot_longer()` makes datasets longer by increasing the number of rows and decreasing the number of columns.
+
+```{r}
+# Use pivot_longer() to have an observation for each country/year
+newtable4a <-  pivot_longer(table4a,
+                            cols = c(`1999`, `2000`), # columns in table4a to put as rows
+                            names_to = "year", # save 1999 and 2000 as a variable year
+                            values_to = "cases") # save the cell values as a variable cases
+
+newtable4a
+```
+
+#### **Try it! Do the same for `table4b`. Think about what the numbers represent in that table to name the variable appropriately. Then join the `newtable4a` and `newtable4b`. Note: you will need to join these tables using two variables with the following code `by = c("variable1", "variable2"))`.**
+
+```{r}
+# Write code here
+```
+
+What if we joined `table4a` and `table4b` before tidying?
+
+```{r}
+# Take a look at both tables again
+table4a
+table4b
+```
+
+```{r}
+# Join untidy tables
+inner_join(table4a, table4b, by = "country")
+
+# Join untidy tables, adding explicit suffixes
+joined <- inner_join(table4a, table4b, by = "country", 
+           suffix = c(".cases", ".pop"))
+joined
+```
+
+Now, let's try to tidy the joined dataset:
+
+```{r}
+# Using pivot_longer() on all columns
+pivot_longer(joined, cols = c('1999.cases':'2000.pop'))
+```
+
+But that dataset is too long and we would like to split values for the variable `name` like 1999.cases into two columns (one for `year`, one for `cases`/`population`). The function `separate()` can find the separator automatically:
+
+```{r}
+# Save joined dataset
+joined_long <- pivot_longer(joined, cols = c('1999.cases':'2000.pop'))
+
+# Use separate() to distinguish between year and cases/population variables
+separate(joined_long, name, into = c("year", "type"))
+```
+
+Each row does not represent one observation though (for example, Afghanistan in 1999 is represented by 2 rows). We need to make the dataset *wider*. The last dataset we created above is actually called `table2`.
+
+### b. Long to wide
+
+The function `pivot_wider()` makes datasets wider by increasing the number of columns and decreasing the number of rows.
+
+```{r}
+# Take a look at table2
+table2
+```
+
+```{r}
+# Use pivot_wider() to have a variable for the number of cases and one for population
+pivot_wider(table2, 
+            names_from = type, # differentiate by type
+            values_from = count) # keep values of count in corresponding variable
+```
+
+## 3. More separating and uniting
+
+### a. Separate
+
+As mentioned above, we can split variables into two with `separate()`. R can find the separator automatically or you could specify the separator with the argument `sep = " "`.
+
+```{r}
+# Take a look at table3
+table3
+```
+
+#### **Try it! Separate `rate` into two variables: `cases` and `population`. What do you notice about the type of variables? Add the argument `convert = TRUE` in `separate()` to convert the variables in the appropriate format.**
+
+```{r}
+# Write code here
+```
+
+### b. Unite
+
+On the opposite, we can combine two variables into one with `unite()`.
+
+```{r}
+# Take a look at table5
+table5
+```
+
+Let's gather `century` and `year`:
+
+```{r}
+# Use unite() to rejoin the variables century and year created above
+unite(table5, new, century, year)
+
+# R places "_" automatically or you can specify a separator:
+unite(table5, new, century, year, sep = "")
+```

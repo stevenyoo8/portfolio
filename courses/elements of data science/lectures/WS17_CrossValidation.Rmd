@@ -1,0 +1,420 @@
+---
+title: "Worksheet 17: Cross-validation"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+# You won't have to edit it (unless you want to!)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print = 100))
+
+# Edit the file starting below
+```
+
+## 1. Set up
+
+We will use many packages again today! `tidyverse`, `plotROC`, `caret`, `rpart`, `rpart.plot` and `randomForest`:
+
+```{r, echo = FALSE}
+# Load packages
+library(tidyverse)
+library(plotROC)
+library(caret)
+library(rpart)
+```
+
+Recall the `biopsy` dataset that contains information about tumor biopsy results. Nine features of the tumor were measured (on a 1-10 scale) as well as the `outcome` variable (malignant vs. benign). Let's recode the `outcome` variable as 0 (benign) and 1 (malignant):
+
+```{r}
+# Upload the data from GitHub
+biopsy <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//Biopsy.csv")
+
+# Take a quick look
+sample_n(size = 5, biopsy)
+```
+
+Our goal is to validate the different classifiers we have explore to predict malignancy: logistic regression, kNN, and decision tree.
+
+In the last worksheet, we compared the three classifiers (logistic regression, kNN, decision tree) considering all potential predictors in `biopsy`. Let's visualize the ROC curve of each classifier on the same plot. Note: the predict() function has a different syntax depending on which model we use. It might be a good idea to add some color to differentiate the models. Which classifier seem to perform better? worse? 
+
+```{r}
+# Fit the logistic regression model
+biopsy_log <- glm(outcome ~ ., data = biopsy %>%
+                    mutate(outcome = ifelse(outcome == "benign", 0, 1)), # needs a binary outcome 0 or 1
+                  family = "binomial")
+
+# Fit the kNN model
+biopsy_kNN <- knn3(outcome ~ ., data = biopsy, k = 5)
+
+# Fit the decision tree model
+biopsy_tree <- rpart(outcome ~ ., data = biopsy, method = "class") 
+
+# ROC curves: Note the different syntax for predict() depending on the model
+ggplot(biopsy) + 
+  geom_roc(aes(d = outcome, m = predict(biopsy_log, type = "response")), n.cuts = 0, color = "blue") +
+  geom_roc(aes(d = outcome, m = predict(biopsy_kNN, biopsy)[,2]), n.cuts = 0, color = "orange") +
+  geom_roc(aes(d = outcome, m = predict(biopsy_tree, biopsy)[,2]), n.cuts = 0) +
+  labs(caption = "Blue = Logistic Regression, 
+                  Orange = kNN, 
+                  Black = Decistion tree") +
+  xlim(0,0.25) # "zoom" on the top left corner
+```
+
+But how would each of these models be helpful to predict the malignancy `outcome` based on new data?
+
+## 2. Train and Test sets
+
+We will separate our entire dataset into a `train` set to train our model and a `test` set to test our model:
+
+```{r}
+# Define a sampling process
+sample_process <- sample(c(TRUE, FALSE), # take value TRUE or FALSE
+                 nrow(biopsy), # for each row in biopsy
+                 replace = TRUE, # TRUE or FALSE can repeat
+                 prob = c(0.7, 0.3)) # 70% TRUE, 30% FALSE
+
+# Select values for the train set (corresponding to TRUEs in sample_process)
+train_biopsy <- biopsy[sample_process, ]
+
+# Select values for the test set (corresponding to FALSEs in sample_process)
+test_biopsy <- biopsy[!sample_process, ]
+
+nrow(biopsy)
+nrow(train_biopsy) + nrow(test_biopsy)
+```
+
+### a. Logistic regression
+
+First, we fit the logistic regression model on the `train` set only:
+
+```{r}
+# Fit a logistic regression model with all predictors
+biopsy_log <- glm(outcome ~ ., data = train_biopsy %>% # focus on train set
+                    mutate(outcome = ifelse(outcome == "benign", 0, 1)),
+                  family = "binomial")
+```
+
+Let's compare the predictions on the `train` set and on the `test` set:
+
+```{r}
+# Results in a data frame for train data
+predict_train <- data.frame(
+  predictions = predict(biopsy_log, newdata = train_biopsy, type = "response"),
+  outcome = train_biopsy$outcome,
+  name = "train")
+
+# Results in a data frame for test data
+predict_test <- data.frame(
+  predictions = predict(biopsy_log, newdata = test_biopsy, type = "response"),
+  outcome = test_biopsy$outcome,
+  name = "test")
+
+# Combined results
+predict_combined <- rbind(predict_train, predict_test)
+```
+
+Let's evaluate the performance of our classifier on the `train` and `test` sets:
+
+```{r}
+ggplot(predict_combined) + 
+  geom_roc(aes(d = outcome, m = predictions, color = name), n.cuts = 0) +
+  labs(title = "ROC curve for logistic regression")
+```
+
+How does the performance on the `train` set compares to the `test` set?
+
+Did we all get the same ROC curves? Why/Why not?
+no, random sampling for train
+
+### b. Other classifiers
+
+We can also train and test other classifiers.
+
+#### **Try it! In a team of 2, each student picks a classifier (kNN or decision tree) to train and test the model on some part of the data. Train your classifier on the `train` set and compare the performance for predicting malignancy with all predictors on the `train` set vs on the `test` set. Is there any sign of overfitting?**
+
+```{r}
+# kNN model
+biopsy_kNN <- knn3(outcome ~ ., data = train_biopsy, k = 5)
+
+# make prediction
+predict_train <- data.frame(
+  predictions = predict(biopsy_kNN, newdata = train_biopsy)[,2],
+  outcome = train_biopsy$outcome,
+  name = "train")
+
+# Results in a data frame for test data
+predict_test <- data.frame(
+  predictions = predict(biopsy_log, newdata = test_biopsy, type = "response"),
+  outcome = test_biopsy$outcome,
+  name = "test")
+
+# Combined results
+predict_combined <- rbind(predict_train, predict_test)
+
+# ROC
+ggplot(predict_combined) + 
+  geom_roc(aes(d = outcome, m = predictions, color = name), n.cuts = 0) +
+  labs(title = "ROC curve for kNN")
+
+-----------------------------------------------------------------
+
+# decision tree model
+biopsy_tree <- rpart(outcome ~ ., data = train_biopsy, method = "class") 
+
+# make prediction
+predict_train <- data.frame(
+  predictions = predict(biopsy_tree, newdata = train_biopsy)[,2],
+  outcome = train_biopsy$outcome,
+  name = "train")
+
+# Results in a data frame for test data
+predict_test <- data.frame(
+  predictions = predict(biopsy_tree, newdata = test_biopsy, type = "response"),
+  outcome = test_biopsy$outcome,
+  name = "test")
+
+# Combined results
+predict_combined <- rbind(predict_train, predict_test)
+
+# ROC
+ggplot(predict_combined) + 
+  geom_roc(aes(d = outcome, m = predictions, color = name), n.cuts = 0) +
+  labs(title = "ROC curve for kNN")
+```
+
+## 3. Cross-validation
+
+Our results might differ depending on which `train` set and `test` set we considered. Let's try two methods to compare performance over multiple test sets: k-fold and leave-one-out cross-validation.
+
+### a. k-fold cross-validation
+
+The principle for 𝑘-fold cross-validation is to:
+
+-   Divide datasets into 𝑘 equal parts (usually 5 or 10)
+
+-   Use 𝑘−1 parts as the train set, and the remaining part as the test set
+
+-   Repeat 𝑘 times, so each part has been used once as a test set
+
+-   Average performance over 𝑘 tests
+
+First, we will create the different folds:
+
+```{r}
+# Choose number of folds (split data into 10 parts)
+k = 10 
+
+# Randomly order rows in the dataset
+data <- biopsy[sample(nrow(biopsy)), ] 
+
+# Create k folds from the dataset (break rows into k parts)
+folds <- cut(seq(1:nrow(data)), breaks = k, labels = FALSE)
+```
+
+Then we fit a logistic regression model and repeat the process for each 𝑘-fold (using a for-loop):
+
+```{r, warning = FALSE}
+# Initialize a vector to keep track of the performance
+perf_k <- NULL
+
+# Use a for loop to get diagnostics for each test set
+for(i in 1:k){
+  # Create train and test sets
+  train_not_i <- data[folds != i, ] # all observations except in fold i
+  test_i <- data[folds == i, ]  # observations in fold i
+  
+  # Train model on train set (all but fold i)
+  biopsy_log <- glm(outcome ~ ., data = train_not_i %>%
+                    mutate(outcome = ifelse(outcome == "benign", 0, 1)),
+                  family = "binomial")
+  
+  # Test model on test set (fold i)
+  predict_i <- data.frame(
+    predictions = predict(biopsy_log, newdata = test_i, type = "response"),
+    outcome = test_i$outcome)
+  
+  # Consider the ROC curve for the test dataset
+  ROC <- ggplot(predict_i) + 
+    geom_roc(aes(d = outcome, m = predictions))
+
+  # Get diagnostics for fold i (AUC)
+  perf_k[i] <- calc_auc(ROC)$AUC
+}
+```
+
+Finally, find the average performance on new data:
+
+```{r}
+# Average performance 
+mean(perf_k)
+```
+
+What does it tell us?
+
+#### **Try it! In the same team of 2, each student picks a different classifier (kNN or decision tree) to validate the model. Apply the k-fold cross-validation with the classifier of your choice to predict malignancy with all predictors. How well did your classifier perform on average?**
+
+```{r}
+# Write code here
+# Initialize a vector to keep track of the performance
+perf_k <- NULL
+
+# Use a for loop to get diagnostics for each test set
+for(i in 1:k){
+  # Create train and test sets
+  train_not_i <- data[folds != i, ] # all observations except in fold i
+  test_i <- data[folds == i, ]  # observations in fold i
+  
+  # Train model on train set (all but fold i)
+  biopsy_kNN <- knn3(outcome ~ ., data = train_not_i, k = 5) 
+  
+  # Test model on test set (fold i)
+  predict_i <- data.frame(
+    predictions = predict(biopsy_kNN, newdata = test_i)[,2],
+    outcome = test_i$outcome)
+  
+  # Consider the ROC curve for the test dataset
+  ROC <- ggplot(predict_i) + 
+    geom_roc(aes(d = outcome, m = predictions))
+
+  # Get diagnostics for fold i (AUC)
+  perf_k[i] <- calc_auc(ROC)$AUC
+}
+```
+
+### b. Leave-One-Out cross-validation
+
+The principle for Leave-One-Out cross-validation (LOOCV) is to:
+
+-   Use 𝑛−1 observations / rows as train set
+
+-   Test model on remaining observation
+
+-   Repeat 𝑛 times, so each observation has been left out once
+
+-   Average performance over 𝑛 tests
+
+We leave out one observation at a time:
+
+```{r}
+# Initialize a data frame to test
+tests <- data.frame()
+
+# Use a for loop to leave out one observation at a time
+for(i in 1:nrow(biopsy)){
+  # Create train and test sets
+  train_not_i <- biopsy[-i, ] # all observations but i
+  test_i <- biopsy[i, ]   # observation i
+  
+  # Train model on train set (all but observation i)
+  biopsy_log <- glm(outcome ~ ., data = train_not_i %>%
+                    mutate(outcome = ifelse(outcome == "benign", 0, 1)),
+                    family = "binomial")
+  
+  # Compare predicted probability to the truth
+  tests <- rbind(tests, c(
+    predict(biopsy_log, newdata = test_i, type = "response"), 
+    outcome = test_i$outcome))
+  names(tests) <- c("predictions","outcome")
+}
+```
+
+Let's evaluate performance with average AUC:
+
+```{r}
+# Consider the ROC curve for the results on tests
+ROC <- ggplot(tests) + geom_roc(aes(d = outcome, m = as.numeric(predictions)), n.cuts = 10)
+ROC
+
+# Get overall performance (AUC)
+calc_auc(ROC)
+```
+
+### c. A function for cross-validation
+
+There is a function `train()` in the `caret` package that trains the model and conducts cross-validation with `trainControl()`.
+
+```{r}
+# Cross validation for the logistic regression model
+logistic_cv <- train(outcome ~ .,
+      data = biopsy ,
+      # Type of model
+      method = "glm",
+      # Cross validation: 10 folds
+      trControl = trainControl(method = "cv", number = 10),
+      family = "binomial")
+
+# Let's take a look at the output
+logistic_cv
+# k is the number of neighbors
+```
+
+```{r}
+# Cross validation for the kNN model
+kNN_cv <- train(outcome ~ .,
+      data = biopsy,
+      method = "knn",
+      trControl = trainControl(method = "cv", number = 10)) # 10-fold cv
+
+# Let's take a look at the output
+kNN_cv
+# k is the number of neighbors
+```
+
+```{r}
+# Cross validation for the decision tree model
+tree_cv <- train(outcome ~ .,
+      data = biopsy,
+      method = "rpart",
+      trControl = trainControl(method = "cv", number = 10))
+
+# Let's take a look at the output
+tree_cv
+# cp stands for Complexity Parameter of the tree
+```
+
+We could also try the cross-validation with `LOOCV` in the `train()` function.
+
+## Your turn!
+
+Issues of overfitting are more pronounced using a smaller dataset. Consider the built-in dataset called `mtcars` that has 32 observations to predict transmission (`am` = 0 if automatic, 1 if manual) based on `weight` and `cylinders`.
+
+```{r}
+# Take a quick look at the data
+head(mtcars)
+```
+
+1.  Pick one classifier (logistic regression, kNN, or decision tree). Fit the model on the entire dataset to predict transmission based on `wt` and `cyl`. How well does your classifier perform?
+
+```{r}
+# Try it!
+
+```
+
+2.  Split 80% of `mtcars` into a train set and the remaining 20% as a test set. Is there any sign of overfitting? Report the overall and average performance of your classifier in this spreadsheet: <https://docs.google.com/spreadsheets/d/14frvuvkCrDpXramI2q9ondOe6PIPo5X31K32oZe8E74/edit?usp=sharing>
+
+```{r}
+# Try it!
+
+```
+
+3.  Using the grid below, represent the decision boundary of your model within two graphs: one representing the data in your train dataset, one representing the data in your test set. Is there any visual sign of overfitting? Report your plots and the average performance of your classifier in this slideshow: <https://docs.google.com/presentation/d/1qF_-XGkL_veQcBI-AkEgR7feRRzZmkZhRe26afow3P0/edit?usp=sharing>
+
+```{r}
+# Make a grid (values for x and y) to layout the contour geom
+grid <- data.frame(expand.grid(wt = seq(min(mtcars$wt),
+                                            max(mtcars$wt),
+                                            length.out = 100),
+                               cyl = seq(min(mtcars$cyl),
+                                      max(mtcars$cyl),
+                                      length.out = 100)))
+
+# Try it!
+
+```

@@ -1,0 +1,436 @@
+---
+title: "Worksheet 2: Programming Concepts"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+# You won't have to edit it (unless you want to!)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+In this worksheet, we will discuss some programming concepts such as conditional statements, functions, or for-loop.
+
+## 1. Conditional Statements
+
+We can use conditional statements for *flow* control. Below are some essential comparison operators for setting conditions in R:
+
+-   `==` means equality
+
+-   `!=` means "not equal"
+
+-   `<` means "less than" while `<=` means "less than or equal to"
+
+-   `>` means "greater than" while `>=` means "greater than or equal to"
+
+-   `x %in% y` is looking for the value of `x` in the object `y`
+
+We can execute some code under certain conditions with the *if-else* structure:
+
+```{r, eval=FALSE}
+if (condition) {
+  #code to run when condition is TRUE
+  } else {
+  #code to run when condition is FALSE
+}
+```
+
+Let's try a few examples:
+
+```{r}
+# Set x to be 4
+x <- 4  
+
+# Test if x is less than 5 or not
+if(x < 5){
+  print("This number is less than five!")
+} else {
+  print("This number is at least five!")
+}
+```
+
+```{r}
+# What if x was 5?
+x <- 5  
+
+if(x < 5){
+  print("This number is less than five!")
+} else {
+  print("This number is at least five!")
+}
+```
+
+```{r}
+# Define a character vector
+basket <- c('Apple', 'Orange', 'Passion fruit', 'Banana') 
+
+# Is there an apple in the basket?
+if("apple" %in% basket){
+  print("There is an apple in the basket!")
+} else {
+  print("There is no apple in the basket!")
+}
+
+# Why is that?
+# There is Apple, but not apple
+```
+
+We can add many conditions!
+
+```{r, eval=FALSE}
+if (condition1){
+  #code to run when condition1 is TRUE
+  code
+  } else if (condition2) {
+  #code to run when condition2 is TRUE
+  code
+  }
+  } else if (condition3) {
+  #code to run when condition3 is TRUE
+  code
+  }
+  } else {
+  #code to run when all conditions are FALSE
+  code
+}
+```
+
+#### **Try it! Write a if-else statement that checks: 1) if a number `x` is positive, print "The number is positive", then 2) if a number `x` is negative, print "The number is negative", and finally 3) if x is zero, print "The number is 0".**
+
+```{r}
+x = 'abc'
+if (is.numeric(x) & x > 0) {
+  print("The number is positive")
+} else if (is.numeric(x) & x < 0) {
+    print("The number is negative")
+} else if (is.numeric(x) & x == 0) {
+  print("The number is 0")
+} else {
+    print("The number is 0")
+  }
+```
+
+A related function that is very useful is `ifelse()`. This function takes three arguments: a conditional statement and two possible answers. If the logical is `TRUE`, the value in the second argument is returned and if `FALSE`, the value in the third argument is returned. It is particularly useful because it works on vectors.
+
+```{r}
+# Set x to be a vector containing different integers
+x <- c(4,5,0,-5)
+
+# Calculate the inverse of any x: depends if x is equal to 0 or not
+ifelse(x != 0, 1/x, NA)
+```
+
+Some other useful functions are `any()`, `all()`, and `which()` to check for `TRUE`s in logical values.
+
+```{r}
+# Create a logical vector
+logics <- c(TRUE, TRUE, FALSE)
+```
+
+The `any()` function takes a vector of logical values and returns `TRUE` if any of the entries is `TRUE`.
+
+```{r}
+# Are any of the entries true?
+any(logics)
+```
+
+The `all()` function takes a vector of logical values and returns `TRUE` if all of the entries are `TRUE`. Here is an example:
+
+```{r}
+# Are all of the entries true?
+all(logics)
+```
+
+The `which()` function takes a vector of logical values and returns the positions of the entries that are `TRUE`. Here is an example:
+
+```{r}
+# Which entries are true?
+which(logics)
+```
+
+We can do some operations on logical values! A `TRUE` entry has a value of 1 while a `FALSE` entry has a value of 0. We can count the number of `TRUE` and `FALSE` entries as follows:
+
+```{r}
+# Sum of true entries
+sum(logics)
+
+# Sum of false entries (opposite of true!)
+sum(!logics)
+```
+
+#### **Try it! What if we are interested in the proportion of `TRUE` entries? What proportion of cars in mtcars have values of `mpg` greater than 30?**
+
+```{r}
+# Write code here
+data(mtcars)
+mtcars$mpg > 30
+cars_logic <- mtcars$mpg > 30
+# 3 possible answers
+sum(cars_logic) / (sum(cars_logic) + sum(!cars_logic))
+sum(cars_logic) / length(mtcars$mpg)
+mean(cars_logic)
+
+
+```
+
+## 2. Functions
+
+As we become more experienced, you will find yourself needing to perform the same operations over and over. Functions are a way to perform repetitive tasks. We can build a function following that structure:
+
+```{r, eval=FALSE}
+function_name <- function(inputs){
+  # perform operations on inputs and produce output
+  code
+}
+```
+
+Let's define a function for calculating the z-score associated to a value:
+
+$$
+z = \frac{X_i - \bar X}{s}
+$$
+
+Consider the following data about the heights of a group of students in this class:
+
+```{r}
+# The heights are saved as a vector
+heights <- c(61,67,64,63,60,66)
+
+# The mean is 
+mean(heights)
+
+# and the standard deviation is 
+sd(heights)
+```
+
+```{r}
+# Define a function called zscore to find the zscore of some numeric value
+zscore <- function(x,xbar,s){
+  # divide the difference between x and the mean by the standard deviation
+  (x - xbar) / s
+}
+
+# Find your zscore!
+zscore(61, mean(heights), sd(heights))
+```
+
+#### **Try it! Write a function that computes the reciprocal of any number. Does your function also work for zero?**
+
+```{r}
+# Write code here
+reciprocal <- function(x) {
+  ifelse(x != 0, 1/x, NA)
+}
+reciprocal(0)
+
+```
+
+## 3. For Loops
+
+Suppose you want to perform the same task over and over. You can use loops to perform iterative tasks with the following structure:
+
+```{r, eval=FALSE}
+for(i in sequence){
+  # task
+}
+```
+
+We can do iterations from a sequence or vector of numbers or characters.
+
+First, let's consider all numbers between 1 and 10:
+
+```{r}
+# i takes the value of each element in the sequence 1,2,3,...,10
+for(i in 1:10){
+  print(i)
+}
+```
+
+What if we would like to square these numbers?
+
+```{r}
+# i takes the value of each element in the sequence 1,2,3,...,10
+for(i in 1:10){
+  print(i^2)
+}
+```
+
+Printing is nice but what if we wanted to save those values into a vector? We would need to initialize such a vector and define each element in the loop:
+
+```{r}
+# Initialize an empty vector
+sq1_10 <- c()
+
+# Remember i takes the value of each element in the sequence 1,2,3,...,10
+for(i in 1:10){
+  # so we can use the values of i to index the new vector
+  sq1_10[i] <- i^2 # the ith element of sq1_10 is i^2
+}
+
+# Take a look!
+sq1_10
+```
+
+We can also define a specific vector and go through each element of the vector:
+
+```{r}
+# Recall the vector basket
+basket <- c('Apple', 'Orange', 'Passion fruit', 'Banana')
+
+# fruit takes the value of each element in basket
+for(fruit in basket){
+  print(fruit)
+}
+```
+
+Let's see the zscores of all heights:
+
+```{r}
+# Recall the vector heights
+heights <- c(61,67,64,63,60,66)
+
+for(h in heights){
+  print(zscore(h, mean(heights), sd(heights)))
+}
+```
+
+If we want to save the values of the different zscores into a vector, we would need to specify how each element will be created:
+
+```{r}
+# Initialize the vector zscores
+zscores <- c()
+
+# seq_along() creates a sequence of positions! 1,2,3,...,6
+seq_along(heights)
+
+# therefore i takes values 1,2,3,...,6
+for(i in seq_along(heights)){
+  # assign the value of an element in zscores by indexing
+  zscores[i] <- zscore(heights[i], mean(heights), sd(heights)) 
+}
+
+# Take a look at the zscores vector!
+zscores
+
+# What is the sum of these values?
+sum(zscores)
+```
+
+#### **Try it! Use a for loop to calculate the reciprocal of all numbers between 1 and 10.**
+
+```{r}
+# Write code here
+for(i in 1:10){
+  print(reciprocal(i))
+}
+
+reciprocals <- c()
+for(i in 1:10){
+  reciprocals[i] <- reciprocal(i)
+}
+reciprocals
+```
+
+## 4. Vectorization
+
+For-loops could slow down the computation. We prefer *vectorization* over for-loops since it results in shorter and clearer code. A vectorized function is a function that will apply the same operation on each value of the vectors. Let's find the zscore of each height, using the function on the vector instead:
+
+```{r}
+# Apply the function to a vector
+zscore(heights, mean(heights), sd(heights))
+```
+
+## 5. Don't reinvent the wheel
+
+There are many built-in functions in R that can make your programming easier. Look up the documentation or search forums to see if a function already exists before you build it.
+
+#### **Your turn!**
+
+Consider the dataset `quakes` which contains information about earthquakes occurring near Fiji since 1964. The first few observations are listed below:
+
+```{r}
+# Take a look at the data frame
+head(quakes)
+```
+
+1.  Suppose you want to find out if there was an earthquake with a magnitude greater than 6 in this data frame. What built-in R function could help you quickly look that up?
+
+```{r}
+# Write code here
+any(quakes$mag > 6)
+```
+
+2.  Create a new vector called `mag_cat` to categorize the magnitude of the earthquake as *moderate* if less than 6 and *severe* otherwise.
+
+```{r}
+mag_cat <- c()
+quakes$mag
+seq_along(quakes$mag)
+
+for (i in seq_along(quakes$mag)) {
+  if (quakes$mag[i] < 6.0) {
+    mag_cat[i] = "moderate"
+  } else {
+    mag_cat[i] = "severe"
+  }
+}
+  
+mag_cat
+
+# same code but in one line
+mag_cat <- ifelse(quakes$mag < 6, "moderate", "severe")
+
+```
+
+3.  Using a for-loop, count how many cases of severe earthquakes were reported in the vector you created for the previous question.
+
+```{r}
+count_severe <- 0
+
+# count with a loop
+for(i in seq_along(mag_cat)){
+  if(mag_cat[i] == "severe"){
+  count_severe = count_severe + 1
+  } else {
+  count_severe = count_severe
+  }
+}
+
+count_severe
+```
+
+4.  Define a new function `zscore2` that takes a vector as an input (instead of a value, mean, and sd as we did for `zscore`). Test your function on `quakes$lat`.
+
+```{r}
+# Write code here
+zscore2 <- function(x){
+  # divide the difference between x and the mean by the standard deviation
+  (x - mean(x)) / sd(x)
+}
+
+# Find your zscore!
+zscore2(quakes$lat)
+```
+
+5.  Using a for-loop, apply the function `zscore2` to each column in `quakes`, but the last one. *Would it make sense to find the zscore of `stations`?*
+
+```{r}
+# Write code here
+jy23294 <- quakes 
+
+# Loop other the number of columns
+for(i in 1:(ncol(quakes)-1)){
+  jy23294[,i] <- zscore2(quakes[,i])
+}
+quakes
+
+```

@@ -1,0 +1,279 @@
+---
+title: "Worksheet 18: Dimension Reduction"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+# You won't have to edit it (unless you want to!)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print = 100))
+
+# Edit the file starting below
+```
+
+## 1. Set up
+
+We will use the `tidyverse` package as usual but also `ade4` to access a built-in dataset, `ggcorrplot` to visualize a correlation matrix, and `factoextra` to provide information about the PCA.
+
+```{r, eval=FALSE}
+# Install new packages (only needed once!)
+install.packages("ade4")
+install.packages("ggcorrplot")
+install.packages("factoextra")
+```
+
+```{r, message=FALSE}
+# Load packages
+library(tidyverse)
+library(ade4)
+library(ggcorrplot)
+library(factoextra)
+```
+
+Let's consider the built-in database `olympic` which gives the performances of 33 men's decathlon (10 disciplines) at the Olympic Games in 1988. We will focus on the dataset `tab`.
+
+```{r}
+# Save the database into your environment, then the dataset
+data("olympic")
+athletes <- olympic$tab
+
+# Take a quick look at the dataset
+head(athletes)
+```
+
+The names of the variables might not be very intuitive so let's rename them:
+
+```{r}
+# Quick cleanup
+athletes <- athletes %>%
+  # Translate the variable names (from French!)
+  rename(disc = disq, weight = poid, high_jump = haut,
+  # Make the names more explicit
+         long_jump = long, javelin = jave, perch = perc,
+  # Add indication of distance (R does not like digits for variable names)
+         dist_100 = `100`, dist_110 = `110`,
+         dist_400 = `400`, dist_1500 = `1500`)
+```
+
+How could we investigate the relationships between these 10 variables?
+
+## 2. Correlation
+
+Correlation describes the (linear) relationship between two variables. For example, let's look at the relationship between time to run 100 meters and length of a long jump:
+
+```{r}
+# Visualize the relationship between dist_100 and long_jump
+ggplot(athletes, aes(x = dist_100, y = long_jump)) +
+  geom_point() + geom_smooth(method = "lm") +
+  labs(x = "Time to run 100 meters (in seconds)",
+       y = "Distance for long jump (in meters)")
+```
+
+We can use the correlation coefficient to describe the strength and direction of the relationship between those two variables:
+
+```{r}
+# Find the correlation between two variables
+cor(athletes$dist_100, athletes$long_jump, 
+    use = "pairwise.complete.obs") # ignore missing values
+```
+
+What if we would like to find the correlation coefficients between all pairs of numeric variables? That's a lot of calculations of the correlation coefficients...
+
+```{r}
+# Find pairwise correlations
+cor(athletes, use = "pairwise.complete.obs")
+```
+
+The output is a matrix representing correlations so it is called a correlation matrix! It is pretty ugly though... let's make it pretty!
+
+```{r}
+# Use the ggcorrplot to visualize the correlation matrix
+ggcorrplot(cor(athletes))
+
+# We can add some options
+ggcorrplot(cor(athletes),
+           type = "upper", # upper diagonal
+           lab = TRUE, # print values
+           method = "circle") # use circles with different sizes
+```
+
+It is pretty easy to spot the variables that are the most correlated with a heat map!
+
+#### **Try it! Create a graph to display the relationship between the pair of variables that has the highest positive correlation coefficient. Describe the relationship.**
+
+```{r}
+# Write code here
+ggplot(athletes, aes(x = disc, y = weight)) +
+  geom_point() + geom_smooth(method = "lm") +
+  labs(x = "Throwing distance (in meters)",
+       y = "Throwing weight (in meters)")
+```
+
+## 3. Principal Component Analysis
+
+The 4 steps in PCA are to:
+
+1.  Prepare the data: Always center (subtract the mean from each variable), usually scale (also divide by the standard deviation).
+
+2.  Perform PCA: Using `prcomp()` on your prepared variables.
+
+3.  Choose the number of principal components: Make a scree plot (or choose based on variance or interpretability).
+
+4.  Consider PC scores (the new coordinates for each observation on PCs of interest) and visualize and interpret (if possible) retained PCs and scores.
+
+### a. Prepare the dataset and explore correlations
+
+We would like to group variables that give similar information. It is a good practice to scale our variables so they are all in the same unit (how many standard deviations away a value is from the mean).
+
+```{r}
+# Prepare the dataset
+athletes_scaled <- athletes %>% 
+  # Scale the variables (find how many sd from mean)
+  scale %>%
+  # Save as a data frame
+  as.data.frame
+
+# Take a look at the scaled data
+head(athletes_scaled)
+```
+
+### b. Perform PCA
+
+Let's perform PCA on our 10 variables using `prcomp()`.
+
+```{r}
+# PCA performed with the function prcomp()
+pca <- athletes_scaled %>%
+  prcomp
+
+# The output creates 5 different objects
+names(pca)
+```
+
+Without going into too much detail, let's describe the element `x`:
+
+```{r}
+# New perspective on our data
+pca$x %>% as.data.frame
+
+pca$sdev
+```
+
+Instead of having the performances of the 33 athletes for each 10 disciplines, we have new values according to the new variables PC1, PC2, ..., PC10.
+
+### c. Choose the number of principal components
+
+The idea is to reduce the number of variables so we would like to keep only a few of the principal components (PCs). A scree plot displays the amount of variance explained by each PC (also called dimension). The more the variance explained is, the better!
+
+Functions from the `factoextra` package creates tables and visualizations for PCA automatically.
+
+```{r}
+# Visualize percentage of variance explained for each PC in a scree plot
+fviz_eig(pca, addlabels = TRUE, ylim = c(0, 50))
+```
+
+We are usually looking to keep about 80% of the variance with the few first principal components. Here keeping the first 4 components will add up to about 78.5%.
+
+### d. Visualize and interpret retained PCs and scores
+
+Let's use the new dimensions (principal components 1 and 2) to represent the individuals:
+
+```{r}
+# Visualize the individuals according to PC1 and PC2
+fviz_pca_ind(pca, 
+             repel = TRUE) # Avoid text overlapping for the row number
+```
+
+Each PC is actually a linear combination of the old variables (disciplines). We can take a look at the contribution of each variable to each component:
+
+```{r}
+# Visualize the contributions of the variables to the PCs in a table
+get_pca_var(pca)$coord %>% as.data.frame
+```
+
+For example, the first principal component (`Dim.1`) is:
+
+$$
+Dim.1 = -0.7689031 * dist\_100 + 0.7285412*long\_jump + ... -0.3145678*dist\_1500
+$$
+
+#### **Try it! Use `dplyr` functions to find the variable that contributes the most positively to the first principal component and the variable that contributes the most negatively as well.**
+
+```{r}
+# Write code here
+get_pca_var(pca)$coord %>% as.data.frame %>%
+  filter(Dim.1 == max(Dim.1) | Dim.1 == min(Dim.1))
+```
+
+We can create a visualization to display the variables that contributes the most to the fist two PCs:
+
+```{r}
+# Top contributions of the variables to the PC as a percentage
+fviz_contrib(pca, choice = "var", axes = 1, top = 5) # on PC1
+
+# Note the red dash line indicates the average contribution
+```
+
+Another way to visualize the contributions of the variables is with what we call a correlation circle:
+
+```{r}
+# Correlation circle
+fviz_pca_var(pca, col.var = "black", 
+             repel = TRUE) # Avoid text overlapping of the variable names
+```
+
+Based on this visualization, we can see that some disciplines contribute positively to the first component and some contribute negatively to that same dimension. What do you notice when comparing the nature of those disciplines opposing each other on the first PC?
+
+Finally, we can visualize both the individuals and the variables' contributions in a single plot called a biplot:
+
+```{r}
+# Visualize both variables and individuals in the same graph
+fviz_pca_biplot(pca, 
+             repel = TRUE) # Avoid text overlapping of the names
+```
+
+The labels for the athletes show their overall decathlon rank. What do you notice? What does it mean for an athlete to have a high value for the first PC?
+
+## Your turn!
+
+Let's practice performing PCA on the dataset `mtcars`.
+
+```{r}
+# Remember that dataset?
+head(mtcars)
+```
+
+1.  Build the correlation matrix for `mtcars`. Which pair of variables has the highest correlation in absolute value (i.e., the strongest relationship, either positive or negative)?
+
+```{r}
+# Try it!
+
+```
+
+2.  Drop the variables `vs` and `am` (which represent categorical data), scale the remaining variables, and apply PCA with `prcomp()`. How many principal components do you need to keep to reach at least 80% of the variance explained?
+
+```{r}
+# Try it!
+
+```
+
+3.  Interpret the first two components by looking at the contributions of each variable.
+
+```{r}
+# Try it!
+
+```
+
+4.  Represent the individual cars on the first two components with `fviz_pca_biplot()`. What do you notice in this graph?
+
+```{r}
+# Try it!
+
+```
