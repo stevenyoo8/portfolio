@@ -1,0 +1,339 @@
+---
+title: "Worksheet 12: Text Mining"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+---
+
+```{r global_options, include=FALSE}
+# The following code is a basic setup of options for your document
+# You won't have to edit it (unless you want to!)
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print = 10))
+
+# Edit the file starting below
+```
+
+## 1. Set up
+
+Today we will use a lot of packages to explore cool text mining options! Let's start by calling the package `tidyverse`:
+
+```{r}
+# Load package
+library(tidyverse)
+```
+
+Some packages are not installed on the server (and if you are using RStudio from your computer, you will need to install those). *Note: using `eval=FALSE` when defining the code chunk will make sure not to run the code chunk when knitting the file.*
+
+```{r, eval=FALSE}
+# Install packages (only needed once!)
+install.packages("rvest")
+install.packages("tidytext")
+install.packages("ggwordcloud")
+install.packages("textdata")
+```
+
+After installing the packages, let's load them:
+
+```{r}
+# Load packages
+library(rvest)
+library(tidytext)
+library(ggwordcloud)
+library(textdata)
+```
+
+We will use different sources for text data so let's just call them when we need them!
+
+## 2. Web scraping
+
+We will use the `rvest` package which make it easy to download, then manipulate, HTML and XML. We can data directly from webpages! Let's look at the webpage that lists all R packages on CRAN:
+
+```{r}
+# Webpage with all R packages
+all_pkgs_html <- read_html("https://cran.r-project.org/web/packages/available_packages_by_name.html")
+
+# This objects points to the raw html for this webpage
+all_pkgs_html
+```
+
+With HTML, formatting is done with elements/tags. For example, `<p>` for paragraph text, `<a href=...>` for links, `<img>` for images, `<table>` for tables, etc. Grab elements with `html_nodes()`:
+
+```{R}
+# Extract hyperlinks with "a"
+all_pkgs_html %>%
+  html_nodes("a")
+```
+
+We can grab the hyperlinked text with `html_text()`:
+
+```{r}
+# Save the hyperlinked text
+all_pkgs_html %>%
+  html_nodes("a") %>%
+  html_text() -> linked_text
+
+linked_text %>% head(40)
+```
+
+The first 26 elements of hyperlinked text are referring to the alphabet used to look for packages. Let's get rid of those and find the length of the rest of the hyperlinked text (which corresponds to the list of packages!):
+
+```{r}
+# Get rid of 26 
+all_pkgs_name <- linked_text[-c(1:26)]
+
+# Find the number of packages
+length(all_pkgs_name)
+```
+
+#### **Try it! Find how many packages start with the letters `gg`. Hint: recall `str_detect()` and regex anchors.**
+
+```{r}
+# Write code here
+all_pkgs_name %>%
+  str_detect("^gg") %>%
+  sum
+```
+
+Let's look at the first letter of each package and look at the distribution of each letter with a bar graph:
+
+```{r}
+# We need to convert our vector of names as a dataframe
+as.data.frame(all_pkgs_name) %>% 
+  # Find the first letter of each name with str_extract()
+  mutate(first_letter = str_extract(all_pkgs_name, "^."),
+         first_letter_low = str_to_lower(first_letter)) %>%
+  # Create a bar graph for each letter
+  ggplot(aes(first_letter_low)) + geom_bar() +
+  labs(x = "first letter of package names", y = "frequency")
+```
+
+## 3. Word clouds
+
+How to represent and summarize text data? A word cloud represents how frequent some words are in a dataset containing text. At the beginning of the semester, students share what they would like to learn in this course. Let's analyze that!
+
+```{r}
+# Upload data from GitHub
+text_survey <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//text_survey.csv")
+
+# Take a look
+head(text_survey)
+```
+
+We need to do some clean up! Let's get rid of the punctuation, put text in lowercase, and split sentences into words (we practiced that in the last worksheet).
+
+```{r}
+text_survey$learn %>% # focus on the variable learn 
+  str_remove_all("[^a-zA-Z0-9 ]") %>% # remove punctuation
+  str_to_lower %>% # all characters in lowercase
+  str_split(" ") %>% # split in words
+  unlist -> learn_words
+```
+
+We created a vector, `learn_words`, that contains all words separately. What if we wanted to summarize the frequency of those words? That would be easier to do with `dplyr` functions so we need to work with a dataframe:
+
+```{r}
+as.data.frame(learn_words)
+```
+
+#### **Try it! Find the frequency of each word (call it `freq`). Take a look at the 10 most common words when students describe what they want to learn. What do you think about these top 10 words? Anything interesting? Not interesting?**
+
+```{r}
+# Write code here
+as.data.frame(learn_words) %>%
+  group_by(learn_words) %>%
+  summarise(freq = n()) %>%
+  arrange(desc(freq))
+
+
+    
+```
+
+To clean up data, we might want to omit some words that are not so relevant. Luckily, we can access a list of `stop_words` from the package `tidytext`. There are three lexicons available: `onix`, `SMART` or `snowball`:
+
+```{r}
+table(stop_words$lexicon)
+```
+
+Let's first consider the `snowball` lexicon.
+
+```{r}
+snowball_stops <- stop_words %>% filter(lexicon == "snowball")
+head(snowball_stops)
+smart_stops <- stop_words %>% filter(lexicon == "SMART") 
+```
+
+Let's get rid of these `snowball_stops` with `anti_join()`:
+
+```{r}
+snowball_stops <- stop_words %>% filter(lexicon == "snowball")
+as.data.frame(learn_words) %>%
+  group_by(learn_words) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  anti_join(snowball_stops, by = c("learn_words" = "word")) -> learn_clean
+
+# Take a look
+head(learn_clean)
+```
+
+We have the information we need to put into our word cloud! Let's use a new `geom_` function from the `ggwordcloud` package:
+
+```{r}
+# Using a ggplot
+ggplot(learn_clean, aes(label = learn_words)) +
+  geom_text_wordcloud() + # a new geom!
+  theme_minimal()
+```
+
+#### **Try it! Let's make that word cloud a little prettier... Use `dplyr` and `ggplot` functions to 1) Only keep the 20 most common words, 2) Make the most common words look bigger, 3) Use different colors if the words are more or less common.**
+
+```{r}
+# Write code here
+learn_clean %>%
+  arrange(desc(freq)) %>%
+  head(20) %>%
+  ggplot(aes(label = learn_words, size = freq, color = freq)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) +
+  theme_minimal()
+
+```
+
+There are still a bunch of words we don't really care about...
+
+#### **Try it! Get rid of more `stop_words` by using the `SMART` lexicon instead of `snowball`. Update the word cloud. Do you notice anything (pretty important) missing? Fix it!**
+
+```{r}
+# Write code here
+stop_words %>% filter(lexicon == "SMART")
+
+as.data.frame(learn_words) %>%
+  group_by(learn_words) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  anti_join(stop_words %>% filter(lexicon == "SMART"),  
+            by = c("learn_words" = "word"))
+
+as.data.frame(learn_words) %>%
+  mutate(learn_words = recode(learn_words, "r" = "rstudio")) %>%
+  group_by(learn_words) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  anti_join(stop_words %>% filter(lexicon == "SMART"),  
+            by = c("learn_words" = "word"))
+
+as.data.frame(learn_words) %>%
+  rename("rstudio" = "r") %>%
+  group_by(learn_words) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  anti_join(stop_words %>% filter(lexicon == "SMART"),  
+            by = c("learn_words" = "word"))
+
+as.data.frame(learn_words) %>%
+  mutate(learn_words = recode(learn_words, "r" = "rstudio")) %>%
+  group_by(learn_words) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  anti_join(stop_words %>% filter(lexicon == "SMART"),  
+            by = c("learn_words" = "word")) %>%
+  top_n(n = 20, freq) %>%
+  ggplot(aes(label = learn_words, size = freq, color = freq)) +
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) +
+  theme_minimal() +
+  scale_color_gradient(low = "blue", high = "red")
+
+as.data.frame(learn_words) %>%
+  mutate(learn_words = recode(learn_words, "r" = "rstudio")) %>%
+  group_by(learn_words) %>%
+  summarize(freq = n()) %>%
+  arrange(desc(freq)) %>%
+  anti_join(stop_words %>% filter(lexicon == "SMART"),  
+            by = c("learn_words" = "word")) %>%
+  top_n(n = 20, freq) %>%
+  ggplot(aes(label = learn_words, size = freq, color = as.factor(freq))) + # color as factor
+  geom_text_wordcloud() +
+  scale_size_area(max_size = 15) +
+  theme_minimal()
+
+```
+
+More options for word clouds: <https://cran.r-project.org/web/packages/ggwordcloud/vignettes/ggwordcloud.html>
+
+## 4. Sentiment analysis
+
+Sentiment analysis uses a scored lexicon of words, with emotion scores or labels (negative vs. positive) indicating each word's emotional content.
+
+Consider the following data from `fivethirtyeight` GitHub page:
+
+```{r}
+# Upload data from GitHub for Amazon Reviews of "Digital Software"
+amazon <- read_tsv("https://github.com/rdpeng/stat322E_public/raw/main/data/amazon_reviews_us_Digital_Software_v1_00.tsv.gz")
+
+## Take a look
+head(amazon)
+```
+
+Let's introduce a new function from `tidytext` that put text data automatically into words: `unnest_tokens()`. This function tries to convert tokens into words. However, it strips characters that are important in the context of twitter (like `#` and `@` for example). A token in the context of Twitter is not the same as in the context of spoken or written English. For this reason, instead of using the default, `words`, we use the `tweets` token which includes patterns that start with `#` and `@`. Another minor adjustment we want to make is to remove the links to pictures.
+
+```{r}
+# Keep a subset of variables and extract the words
+amazon %>% 
+    select(review_id, review_body) %>% 
+    unnest_tokens(word, review_body) -> review_words
+```
+
+#### **Try it! What are the 10 most common words in these reviews? What do you think we should do next?**
+
+```{r}
+# Write code here
+review_words %>%
+  group_by(word) %>%
+  summarize(freq = n()) %>%
+  top_n(10) # or slice_max
+  
+  
+```
+
+More cleaning up ahead!
+
+```{r}
+# Recall the SMART lexicon
+SMARTstops <- stop_words %>% filter(lexicon == "SMART")
+
+# More cleaning
+review_words %>% 
+  anti_join(stop_words, by = "word") %>% # remove irrelevant words
+  head
+```
+
+In sentiment analysis, we assign a word to one or more "sentiments". Although this approach will miss context-dependent sentiments, such as sarcasm, when performed on large numbers of words, those summaries can provide some insights. We can use the `tidytext` function `get_sentiments()` to load a lexicon for sentiments of a large number of words. A few examples:
+
+```{r}
+# Get sentiments
+get_sentiments("bing") %>% sample_n(6)
+get_sentiments("afinn") %>% head
+get_sentiments("nrc") %>% head
+```
+
+We can now combine the words from the reviews and their corresponding sentiments (if available):
+
+```{r}
+review_words %>% 
+  anti_join(stop_words, by = "word") %>% # remember to remove irrelevant words
+  inner_join(get_sentiments("bing")) # do inner_join() to keep the available matches
+```
+
+#### **Try it! After joining the review words with their corresponding sentiments (positive/negative), let's find a main sentiment for each review (e.g., the review has more than 50% words with a positive sentiment could be considered as `positive`). Then for each review, add the information about the `star_rating`. Using `ggplot`, investigate if the main sentiment of a review is related to the rating.**
+
+```{r}
+# Write code here
+```
+
+Report your findings in this slideshow: <https://docs.google.com/presentation/d/1ORdfAh2cGHL71gNB3QtXloWg7ZrPPtiXUH_jlqNwPTQ/edit?usp=sharing>
